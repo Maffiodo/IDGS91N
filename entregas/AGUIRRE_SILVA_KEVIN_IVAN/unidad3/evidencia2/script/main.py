@@ -1,73 +1,72 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 
-# 1. Preparación de datos (Simulación de un dataset)
-# -----------------------------------------------------------------
-
-# Crear un DataFrame simulado
+# 1. Preparación de Datos de Ejemplo (Sustituye por tus datos reales)
 np.random.seed(42)
-data = {
-    'Area_m2': np.random.randint(50, 200, 100),
-    'Num_habitaciones': np.random.randint(1, 5, 100),
-    'Antiguedad_anios': np.random.randint(1, 50, 100),
-    'Distancia_centro_km': np.random.uniform(0.5, 20, 100)
-}
-df = pd.DataFrame(data)
+X = np.random.rand(100, 3) * 10
+y = 1.5 * X[:, 0] + 2.0 * X[:, 1] - 0.5 * X[:, 2] + 5 + np.random.randn(100) * 2
 
-# La columna 'Precio' (Variable Dependiente) se genera como una función lineal + ruido
-# Precio = 2000 * Area + 10000 * Habitaciones - 500 * Antiguedad - 1000 * Distancia + ruido
-df['Precio'] = (
-    2000 * df['Area_m2'] + 
-    10000 * df['Num_habitaciones'] - 
-    500 * df['Antiguedad_anios'] - 
-    1000 * df['Distancia_centro_km'] + 
-    np.random.normal(0, 50000, 100) # Añadir ruido
-)
+df = pd.DataFrame(X, columns=['Feature_A', 'Feature_B', 'Feature_C'])
+df['Target'] = y
 
-# Definición de variables de entrada (X) y salida (y)
-X = df[['Area_m2', 'Num_habitaciones', 'Antiguedad_anios', 'Distancia_centro_km']]
-y = df['Precio']
+# 2. División de Datos y Entrenamiento del Modelo
+X_train, X_test, y_train, y_test = train_test_split(df[['Feature_A', 'Feature_B', 'Feature_C']], df['Target'], test_size=0.3, random_state=42)
 
-# División entrenamiento/prueba (70% entrenamiento, 30% prueba)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+model = LinearRegression()
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
 
-print("\n\nDatos de entrenamiento:", X_train.shape, y_train.shape)
-print("Datos de prueba:", X_test.shape, y_test.shape)
+# 3. Cálculo de Residuos
+residuals = y_test - y_pred
 
-# 2. Entrenamiento del modelo
-# -----------------------------------------------------------------
-print("\n\n--- Entrenando Modelo de Regresión Lineal ---")
-modelo_rl = LinearRegression()
-modelo_rl.fit(X_train, y_train)
+# --- GRÁFICAS E INTERPRETACIÓN ---
 
-# Predicciones sobre el conjunto de prueba
-y_pred = modelo_rl.predict(X_test)
+## 📊 1. Gráfico de Dispersión (Valores Reales vs. Predichos)
 
-# 3. Cálculo de las métricas seleccionadas
-# -----------------------------------------------------------------
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred, color='blue', alpha=0.6)
+# Dibuja la línea de predicción perfecta (y=x)
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+plt.xlabel(r"Valores Reales ($Y_{test}$)")
+plt.ylabel(r"Valores Predichos ($\hat{Y}$)")
+plt.title("1. Dispersión: Reales vs. Predichos")
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.show()
 
-# Error Cuadrático Medio (MSE)
-mse = mean_squared_error(y_test, y_pred)
-# Raíz del Error Cuadrático Medio (RMSE)
-rmse = np.sqrt(mse)
-# Error Absoluto Medio (MAE)
-mae = mean_absolute_error(y_test, y_pred)
-# Coeficiente de Determinación (R²)
-r2 = r2_score(y_test, y_pred)
 
-print("\n--- Métricas de Evaluación del Modelo ---")
-print(f"Error Cuadrático Medio (MSE): {mse:,.2f}")
-print(f"Raíz del Error Cuadrático Medio (RMSE): {rmse:,.2f}")
-print(f"Error Absoluto Medio (MAE): {mae:,.2f}")
-print(f"Coeficiente de Determinación (R²): {r2:.4f}")
+## 📉 2. Gráfico de Residuos (Valores Predichos vs. Residuos)
 
-# Ejemplo de predicción para un caso
-ejemplo = pd.DataFrame({
-    'Area_m2': [130], 'Num_habitaciones': [3], 
-    'Antiguedad_anios': [5], 'Distancia_centro_km': [3.0]
-})
-prediccion_ejemplo = modelo_rl.predict(ejemplo)
-print(f"\nPredicción para la vivienda de ejemplo: ${prediccion_ejemplo[0]:,.2f}\n\n")
+plt.figure(figsize=(8, 6))
+plt.scatter(y_pred, residuals, color='purple', alpha=0.6)
+# Dibuja la línea horizontal en Residuos = 0
+plt.axhline(y=0, color='r', linestyle='-', linewidth=1)
+plt.xlabel(r"Valores Predichos ($\hat{Y}$)")
+plt.ylabel(r"Residuos ($Y_{real} - \hat{Y}$)")
+plt.title("2. Gráfico de Residuos")
+plt.grid(True, linestyle='--', alpha=0.7)
+plt.show()
+
+
+## 📈 3. Gráfico de Barras de Coeficientes/Importancia de Características
+
+# Usamos el intercepto y los coeficientes del modelo
+feature_names = X_train.columns.tolist()
+coefficients = [model.intercept_] + model.coef_.tolist()
+labels = ['Intercepto'] + feature_names
+
+# Convertimos a serie para facilitar el ploteo
+coef_series = pd.Series(coefficients, index=labels)
+
+plt.figure(figsize=(10, 6))
+
+# Usamos el valor absoluto para ordenar y ver la magnitud del impacto
+coef_series.abs().sort_values(ascending=False).plot(kind='bar', color='darkorange')
+plt.ylabel("Magnitud Absoluta del Coeficiente")
+plt.title("3. Importancia de las Características (Magnitud Absoluta de Coeficientes)")
+plt.xticks(rotation=45, ha='right')
+plt.grid(axis='y', linestyle='--', alpha=0.7)
+plt.show()
